@@ -104,6 +104,12 @@ extern NSString *const SessionViewWasSelectedForInspectionNotification;
 // Gives the tab color for this session.
 - (NSColor *)sessionViewTabColor;
 
+// Active pane border settings for browser sessions.
+- (BOOL)sessionViewUseActivePaneBorder;
+- (NSColor *)sessionViewActivePaneBorderColor;
+- (BOOL)sessionViewIsActiveSession;
+- (BOOL)sessionViewIsInTraditionalFullScreen;
+
 // Gives the hamburger menu.
 - (NSMenu *)sessionViewContextMenu;
 
@@ -248,6 +254,7 @@ typedef NS_ENUM(NSUInteger, iTermSessionViewFindDriver) {
 - (void)setBackgroundDimmed:(BOOL)backgroundDimmed;
 - (void)updateDim;
 - (void)updateColors;
+- (void)updateActivePaneBorder;
 - (void)saveFrameSize;
 - (void)restoreFrameSize;
 - (void)setSplitSelectionMode:(SplitSelectionMode)mode move:(BOOL)move session:(id)session;

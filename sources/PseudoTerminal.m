@@ -4297,6 +4297,7 @@ hidingToolbeltShouldResizeWindow:(BOOL)hidingToolbeltShouldResizeWindow
 - (void)windowWillClose:(NSNotification *)aNotification {
    DLog(@"windowWillClose %@", self);
     _closing = YES;
+    [iTermWindowCornerRadiusDetector windowDidClose:self.window];
     if (self.isHotKeyWindow && [[self allSessions] count] == 0) {
         // Remove hotkey window restorable state when the last session closes.
         iTermProfileHotKey *hotKey =
@@ -6326,17 +6327,24 @@ hidingToolbeltShouldResizeWindow:(BOOL)hidingToolbeltShouldResizeWindow
 }
 
 - (void)windowWillEnterFullScreen:(NSNotification *)notification {
+    DLog(@"windowWillEnterFullScreen window=%d", (int)self.window.windowNumber);
     _titlebarAccessoryNanny.enteringFullScreen = YES;
+    [iTermWindowCornerRadiusDetector windowWillTransitionFullScreen:self.window];
     [self windowWillEnterFullScreenImpl:notification];
 }
 
 - (void)windowDidEnterFullScreen:(NSNotification *)notification {
+    DLog(@"windowDidEnterFullScreen window=%d", (int)self.window.windowNumber);
     _titlebarAccessoryNanny.enteringFullScreen = NO;
+    [iTermWindowCornerRadiusDetector windowDidTransitionFullScreen:self.window];
     [self windowDidEnterFullScreenImpl:notification];
+    [self updateActivePaneBordersAfterFullScreenTransition];
 }
 
 - (void)windowDidFailToEnterFullScreen:(NSWindow *)window {
+    DLog(@"windowDidFailToEnterFullScreen window=%d", (int)self.window.windowNumber);
     _titlebarAccessoryNanny.enteringFullScreen = NO;
+    [iTermWindowCornerRadiusDetector windowDidTransitionFullScreen:self.window];
     [self windowDidFailToEnterFullScreenImpl:window];
 }
 
@@ -6355,11 +6363,23 @@ hidingToolbeltShouldResizeWindow:(BOOL)hidingToolbeltShouldResizeWindow
 }
 
 - (void)windowWillExitFullScreen:(NSNotification *)notification {
+    DLog(@"windowWillExitFullScreen window=%d", (int)self.window.windowNumber);
+    [iTermWindowCornerRadiusDetector windowWillTransitionFullScreen:self.window];
     [self windowWillExitFullScreenImpl:notification];
 }
 
 - (void)windowDidExitFullScreen:(NSNotification *)notification {
+    DLog(@"windowDidExitFullScreen window=%d", (int)self.window.windowNumber);
+    [iTermWindowCornerRadiusDetector windowDidTransitionFullScreen:self.window];
     [self windowDidExitFullScreenImpl:notification];
+    [self updateActivePaneBordersAfterFullScreenTransition];
+}
+
+- (void)updateActivePaneBordersAfterFullScreenTransition {
+    DLog(@"updateActivePaneBordersAfterFullScreenTransition window=%d sessionCount=%d", (int)self.window.windowNumber, (int)self.allSessions.count);
+    for (PTYSession *session in self.allSessions) {
+        [session.view updateActivePaneBorder];
+    }
 }
 
 - (void)windowWillBeginSheet:(NSNotification *)notification {
@@ -10563,6 +10583,13 @@ static BOOL iTermApproximatelyEqualRects(NSRect lhs, NSRect rhs, double epsilon)
         }
     }
 }
+
+- (void)rootTerminalViewDidLayoutSubviews {
+    for (PTYSession *session in self.allSessions) {
+        [session.view updateActivePaneBorder];
+    }
+}
+
 - (void)forceUpdateTitlebarSeparator NS_AVAILABLE_MAC(10_16) {
     NSTitlebarSeparatorStyle saved = self.window.titlebarSeparatorStyle;
     self.window.titlebarSeparatorStyle = (saved == NSTitlebarSeparatorStyleAutomatic) ? NSTitlebarSeparatorStyleNone : NSTitlebarSeparatorStyleAutomatic;
