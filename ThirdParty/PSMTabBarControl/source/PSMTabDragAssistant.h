@@ -66,6 +66,8 @@
 
 @end
 
+@class PSMTabGroupHeaderCell;
+
 @interface PSMTabBarControl (DragAccessors)
 
 - (id<PSMTabStyle>)style;
@@ -74,5 +76,12 @@
 - (id)cellForPoint:(NSPoint)point cellFrame:(NSRectPointer)outFrame;
 - (PSMTabBarCell *)lastVisibleTab;
 - (int)numberOfVisibleTabs;
+
+// Tab group support
+- (NSString *)guidForCell:(PSMTabBarCell *)cell;
+- (PSMTabGroup *)groupForTabGUID:(NSString *)guid;
+- (PSMTabGroupHeaderCell *)groupHeaderCellForPoint:(NSPoint)point;
+- (void)rebuildGUIDToGroupCache;
+- (void)pruneEmptyGroups;
 
 @end

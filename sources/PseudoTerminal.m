@@ -36,6 +36,7 @@
 #import "PSMDarkTabStyle.h"
 #import "PSMLightHighContrastTabStyle.h"
 #import "PSMMinimalTabStyle.h"
+#import "PSMTabGroup.h"
 #import "PSMTabStyle.h"
 #import "PSMYosemiteTabStyle.h"
 #import "PTYScrollView.h"
@@ -201,6 +202,7 @@ NSString *const TERMINAL_ARRANGEMENT_SCROLLER_WIDTH = @"Scroller Width";
 // Boolean NSNumber.
 NSString *const TERMINAL_ARRANGEMENT_MINIATURIZED = @"miniaturized";
 NSString *const TERMINAL_ARRANGEMENT_SIZE_LOCKED = @"Size Locked";
+NSString *const TERMINAL_ARRANGEMENT_TAB_GROUPS = @"Tab Groups";
 
 static void iTermPercentageSanitize(iTermPercentage *percentage) {
     if (percentage->width >= 0) {
@@ -3782,6 +3784,18 @@ ITERM_WEAKLY_REFERENCEABLE
     if (!openedAny) {
         return NO;
     }
+
+    // Restore tab groups
+    NSArray *groupDicts = arrangement[TERMINAL_ARRANGEMENT_TAB_GROUPS];
+    if ([groupDicts isKindOfClass:[NSArray class]]) {
+        for (NSDictionary *dict in groupDicts) {
+            PSMTabGroup *group = [PSMTabGroup groupFromArrangement:dict];
+            if (group && group.tabGUIDs.count >= 2) {
+                [_contentView.tabBarControl addTabGroup:group];
+            }
+        }
+    }
+
     [self updateUseTransparency];
     return YES;
 }
@@ -3902,34 +3916,46 @@ ITERM_WEAKLY_REFERENCEABLE
                         encoder:(id<iTermEncoderAdapter>)result {
     NSRect rect = [[self window] frame];
 
-    return [PseudoTerminal populateArrangementWith:tabsOrSession
-                                 includingContents:includeContents
-                                           encoder:result
-                                      terminalGuid:self.terminalGuid
-                                              rect:rect
-                                   useTransparency:useTransparency_
-                                shouldShowToolbelt:_contentView.shouldShowToolbelt
-                               toolbeltProportions:_contentView.toolbelt.proportions
-                           toolbeltRestorableState:_contentView.toolbelt.restorableState
-                         windowTitleOverrideFormat:self.scope.windowTitleOverrideFormat
-                  hidingToolbeltShouldResizeWindow:hidingToolbeltShouldResizeWindow_
-                                     anyFullScreen:[self anyFullScreen]
-                                    lionFullScreen:[self lionFullScreen]
-                                          oldFrame:oldFrame_
-                                        windowType:self.windowType
-                                   savedWindowType:self.savedWindowType
-                                        percentage:_percentage
-                                    initialProfile:[self expurgatedInitialProfile]
-                                    isHotKeyWindow:self.isHotKeyWindow
-                                  hotkeyWindowType:_hotkeyWindowType
-                                       screenIndex:[[NSScreen screens] indexOfObjectIdenticalTo:[[self window] screen]]
-                      screenNumberFromFirstProfile:_windowPositioner.screenNumberFromFirstProfile
-                                  windowSizeHelper:_windowSizeHelper
-                                  hideAfterOpening:hideAfterOpening_
-                                  selectedTabIndex:[_contentView.tabView indexOfTabViewItem:[_contentView.tabView selectedTabViewItem]]
-                                               tab:nil
-                                       profileGuid:[[[[iTermHotKeyController sharedInstance] profileHotKeyForWindowController:self] profile] objectForKey:KEY_GUID]
-                                       isMaximized:[self isMaximized]];
+    BOOL ok = [PseudoTerminal populateArrangementWith:tabsOrSession
+                                    includingContents:includeContents
+                                              encoder:result
+                                         terminalGuid:self.terminalGuid
+                                                 rect:rect
+                                      useTransparency:useTransparency_
+                                   shouldShowToolbelt:_contentView.shouldShowToolbelt
+                                  toolbeltProportions:_contentView.toolbelt.proportions
+                              toolbeltRestorableState:_contentView.toolbelt.restorableState
+                            windowTitleOverrideFormat:self.scope.windowTitleOverrideFormat
+                     hidingToolbeltShouldResizeWindow:hidingToolbeltShouldResizeWindow_
+                                        anyFullScreen:[self anyFullScreen]
+                                       lionFullScreen:[self lionFullScreen]
+                                             oldFrame:oldFrame_
+                                           windowType:self.windowType
+                                      savedWindowType:self.savedWindowType
+                                           percentage:_percentage
+                                       initialProfile:[self expurgatedInitialProfile]
+                                       isHotKeyWindow:self.isHotKeyWindow
+                                     hotkeyWindowType:_hotkeyWindowType
+                                          screenIndex:[[NSScreen screens] indexOfObjectIdenticalTo:[[self window] screen]]
+                         screenNumberFromFirstProfile:_windowPositioner.screenNumberFromFirstProfile
+                                     windowSizeHelper:_windowSizeHelper
+                                     hideAfterOpening:hideAfterOpening_
+                                     selectedTabIndex:[_contentView.tabView indexOfTabViewItem:[_contentView.tabView selectedTabViewItem]]
+                                                  tab:nil
+                                          profileGuid:[[[[iTermHotKeyController sharedInstance] profileHotKeyForWindowController:self] profile] objectForKey:KEY_GUID]
+                                          isMaximized:[self isMaximized]];
+    if (ok) {
+        // Save tab groups
+        NSArray<PSMTabGroup *> *tabGroups = _contentView.tabBarControl.tabGroups;
+        if (tabGroups.count > 0) {
+            NSMutableArray *groupDicts = [NSMutableArray arrayWithCapacity:tabGroups.count];
+            for (PSMTabGroup *group in tabGroups) {
+                [groupDicts addObject:[group arrangementRepresentation]];
+            }
+            result[TERMINAL_ARRANGEMENT_TAB_GROUPS] = groupDicts;
+        }
+    }
+    return ok;
 }
 
 + (BOOL)populateArrangementWith:(iTermOr<NSArray<PTYTab *> *, PTYSession *> *)tabsOrSession
@@ -7095,6 +7121,10 @@ hidingToolbeltShouldResizeWindow:(BOOL)hidingToolbeltShouldResizeWindow
 
 - (void)tabViewDidChangeNumberOfTabViewItems:(NSTabView *)tabView {
     PtyLog(@"%s(%d):-[PseudoTerminal tabViewDidChangeNumberOfTabViewItems]", __FILE__, __LINE__);
+
+    // Prune tab groups that lost members
+    [_contentView.tabBarControl pruneEmptyGroups];
+
     if (self.swipeIdentifier) {
         [[NSNotificationCenter defaultCenter] postNotificationName:iTermSwipeHandlerCancelSwipe
                                                             object:self.swipeIdentifier];
@@ -7360,6 +7390,43 @@ hidingToolbeltShouldResizeWindow:(BOOL)hidingToolbeltShouldResizeWindow
                                     keyEquivalent:@""] autorelease];
         [item setRepresentedObject:tabViewItem];
         [rootMenu addItem:item];
+    }
+
+    // Tab group actions (vertical tab bar only)
+    if ([iTermPreferences intForKey:kPreferenceKeyTabPosition] == PSMTab_LeftTab) {
+        [rootMenu addItem:[NSMenuItem separatorItem]];
+
+        NSArray<PSMTabBarCell *> *selectedCells = [_contentView.tabBarControl cellsSelectedForGrouping];
+        if (selectedCells.count >= 2) {
+            item = [[[NSMenuItem alloc] initWithTitle:@"Group Selected Tabs"
+                                               action:@selector(groupSelectedTabs:)
+                                        keyEquivalent:@""] autorelease];
+            [item setRepresentedObject:tabViewItem];
+            [rootMenu addItem:item];
+        }
+
+        PTYTab *theClickedTab = [tabViewItem identifier];
+        NSString *tabGUID = theClickedTab.stringUniqueIdentifier;
+        PSMTabGroup *tabGroup = [_contentView.tabBarControl groupForTabGUID:tabGUID];
+        if (tabGroup) {
+            item = [[[NSMenuItem alloc] initWithTitle:@"Remove from Group"
+                                               action:@selector(removeTabFromGroup:)
+                                        keyEquivalent:@""] autorelease];
+            [item setRepresentedObject:tabViewItem];
+            [rootMenu addItem:item];
+
+            item = [[[NSMenuItem alloc] initWithTitle:@"Ungroup"
+                                               action:@selector(ungroupAllInGroup:)
+                                        keyEquivalent:@""] autorelease];
+            [item setRepresentedObject:tabViewItem];
+            [rootMenu addItem:item];
+
+            item = [[[NSMenuItem alloc] initWithTitle:[NSString stringWithFormat:@"Rename Group \u201C%@\u201D\u2026", tabGroup.title]
+                                               action:@selector(renameTabGroup:)
+                                        keyEquivalent:@""] autorelease];
+            [item setRepresentedObject:tabViewItem];
+            [rootMenu addItem:item];
+        }
     }
 
     // add label
@@ -11833,6 +11900,100 @@ typedef NS_ENUM(NSUInteger, iTermBroadcastCommand) {
 
     for (PTYTab *tab in tabsToRemove) {
         [self closeTab:tab];
+    }
+}
+
+#pragma mark - Tab Group Actions
+
+- (void)groupSelectedTabs:(id)sender {
+    NSArray<PSMTabBarCell *> *selectedCells = [_contentView.tabBarControl cellsSelectedForGrouping];
+    if (selectedCells.count < 2) {
+        return;
+    }
+
+    NSAlert *alert = [[[NSAlert alloc] init] autorelease];
+    alert.messageText = @"Group Name";
+    alert.informativeText = @"Enter a name for the tab group:";
+    [alert addButtonWithTitle:@"OK"];
+    [alert addButtonWithTitle:@"Cancel"];
+
+    NSTextField *input = [[[NSTextField alloc] initWithFrame:NSMakeRect(0, 0, 200, 24)] autorelease];
+    input.stringValue = @"Group";
+    alert.accessoryView = input;
+
+    NSModalResponse response = [alert runModal];
+    if (response != NSAlertFirstButtonReturn) {
+        [_contentView.tabBarControl clearGroupingSelection];
+        return;
+    }
+
+    NSString *groupTitle = input.stringValue;
+    if (groupTitle.length == 0) {
+        groupTitle = @"Group";
+    }
+
+    NSMutableArray<NSString *> *guids = [NSMutableArray array];
+    for (PSMTabBarCell *cell in selectedCells) {
+        NSString *guid = [_contentView.tabBarControl guidForCell:cell];
+        if (guid) {
+            [guids addObject:guid];
+        }
+    }
+
+    if (guids.count >= 2) {
+        PSMTabGroup *group = [[[PSMTabGroup alloc] initWithTitle:groupTitle tabGUIDs:guids] autorelease];
+        [_contentView.tabBarControl addTabGroup:group];
+    }
+
+    [_contentView.tabBarControl clearGroupingSelection];
+}
+
+- (void)removeTabFromGroup:(id)sender {
+    NSTabViewItem *tabViewItem = [sender representedObject];
+    PTYTab *theTab = [tabViewItem identifier];
+    NSString *guid = theTab.stringUniqueIdentifier;
+    PSMTabGroup *group = [_contentView.tabBarControl groupForTabGUID:guid];
+    if (group) {
+        [group removeTabGUID:guid];
+        [_contentView.tabBarControl rebuildGUIDToGroupCache];
+        [_contentView.tabBarControl pruneEmptyGroups];
+        [_contentView.tabBarControl update:YES];
+    }
+}
+
+- (void)ungroupAllInGroup:(id)sender {
+    NSTabViewItem *tabViewItem = [sender representedObject];
+    PTYTab *theTab = [tabViewItem identifier];
+    NSString *guid = theTab.stringUniqueIdentifier;
+    PSMTabGroup *group = [_contentView.tabBarControl groupForTabGUID:guid];
+    if (group) {
+        [_contentView.tabBarControl removeTabGroup:group];
+    }
+}
+
+- (void)renameTabGroup:(id)sender {
+    NSTabViewItem *tabViewItem = [sender representedObject];
+    PTYTab *theTab = [tabViewItem identifier];
+    NSString *guid = theTab.stringUniqueIdentifier;
+    PSMTabGroup *group = [_contentView.tabBarControl groupForTabGUID:guid];
+    if (!group) {
+        return;
+    }
+
+    NSAlert *alert = [[[NSAlert alloc] init] autorelease];
+    alert.messageText = @"Rename Group";
+    alert.informativeText = @"Enter a new name for the tab group:";
+    [alert addButtonWithTitle:@"OK"];
+    [alert addButtonWithTitle:@"Cancel"];
+
+    NSTextField *input = [[[NSTextField alloc] initWithFrame:NSMakeRect(0, 0, 200, 24)] autorelease];
+    input.stringValue = group.title ?: @"";
+    alert.accessoryView = input;
+
+    NSModalResponse response = [alert runModal];
+    if (response == NSAlertFirstButtonReturn && input.stringValue.length > 0) {
+        group.title = input.stringValue;
+        [_contentView.tabBarControl update:YES];
     }
 }
 

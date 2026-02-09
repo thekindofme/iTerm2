@@ -43,6 +43,8 @@ extern const NSInteger kPSMStartResizeAnimation;
 @class PSMRolloverButton;
 @class PSMTabBarCell;
 @class PSMTabBarControl;
+@class PSMTabGroup;
+@class PSMTabGroupHeaderCell;
 @protocol PSMTabStyle;
 
 typedef NSString *PSMTabBarControlOptionKey NS_EXTENSIBLE_STRING_ENUM;
@@ -271,6 +273,32 @@ typedef NS_ENUM(int, PSMTabPosition) {
          cellFrame:(NSRectPointer)outFrame;
 - (void)dragWillExitTabBar;
 - (void)dragDidFinish;
+
+#pragma mark - Tab Groups (vertical tab bar only)
+
+@property(nonatomic, readonly) NSArray<PSMTabGroup *> *tabGroups;
+@property(nonatomic, readonly) NSArray<PSMTabGroupHeaderCell *> *groupHeaderCells;
+
+- (void)addTabGroup:(PSMTabGroup *)group;
+- (void)removeTabGroup:(PSMTabGroup *)group;
+- (void)toggleGroupCollapsed:(PSMTabGroup *)group;
+- (PSMTabGroup *)groupForTabGUID:(NSString *)guid;
+
+// Returns the GUID for a tab cell by looking up its represented PTYTab identifier.
+- (NSString *)guidForCell:(PSMTabBarCell *)cell;
+
+// Multi-select for grouping: returns cells that have been Cmd-clicked for grouping.
+- (NSArray<PSMTabBarCell *> *)cellsSelectedForGrouping;
+- (void)clearGroupingSelection;
+
+// Returns a group header cell if point hits one, nil otherwise.
+- (PSMTabGroupHeaderCell *)groupHeaderCellForPoint:(NSPoint)point;
+
+// Auto-dissolve groups with fewer than 2 members.
+- (void)pruneEmptyGroups;
+
+// Rebuild the GUID-to-group lookup cache after external modifications to groups.
+- (void)rebuildGUIDToGroupCache;
 
 @end
 

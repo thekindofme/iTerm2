@@ -10,6 +10,8 @@
 
 #import "DebugLogging.h"
 #import "PSMTabBarCell.h"
+#import "PSMTabGroup.h"
+#import "PSMTabGroupHeaderCell.h"
 #import "PSMTabStyle.h"
 #import "PSMTabDragWindow.h"
 #import <os/signpost.h>
@@ -601,6 +603,34 @@ static CVReturn DisplayLinkCallback(CVDisplayLinkRef displayLink,
 
     PSMTabBarControl *destination = [[[self destinationTabBar] retain] autorelease];
     PSMTabBarControl *source = [[[self sourceTabBar] retain] autorelease];
+
+    // Tab group awareness: remove from source group, optionally add to destination group
+    if ([self draggedCell]) {
+        NSString *draggedGUID = [source guidForCell:[self draggedCell]];
+        if (draggedGUID) {
+            // Remove from source group
+            PSMTabGroup *sourceGroup = [source groupForTabGUID:draggedGUID];
+            if (sourceGroup) {
+                [sourceGroup removeTabGUID:draggedGUID];
+                [source rebuildGUIDToGroupCache];
+            }
+
+            // Check if dropped onto a group header in destination
+            if (destination) {
+                NSPoint dropPoint = [destination convertPoint:[sender draggingLocation] fromView:nil];
+                PSMTabGroupHeaderCell *headerCell = [destination groupHeaderCellForPoint:dropPoint];
+                if (headerCell && headerCell.group) {
+                    [headerCell.group addTabGUID:draggedGUID];
+                    [destination rebuildGUIDToGroupCache];
+                }
+            }
+
+            [source pruneEmptyGroups];
+            if (source != destination) {
+                [destination pruneEmptyGroups];
+            }
+        }
+    }
 
     if (_draggedCell && [destination.cells containsObject:_draggedCell]) {
         [destination.tabView selectTabViewItem:[_draggedCell representedObject]];

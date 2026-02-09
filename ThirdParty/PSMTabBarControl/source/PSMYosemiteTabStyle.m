@@ -14,6 +14,7 @@
 #import "PSMRolloverButton.h"
 #import "PSMTabBarCell.h"
 #import "PSMTabBarControl.h"
+#import "PSMTabGroupHeaderCell.h"
 #import <objc/runtime.h>
 
 #define kPSMMetalObjectCounterRadius 7.0
@@ -1267,6 +1268,23 @@ const void *PSMTabStyleDarkColorKey = "dark";
             [cell drawPostHocDecorationsOnSelectedCell:cell tabBarControl:bar];
         }
     }
+
+    // Draw group headers (vertical orientation only)
+    if (!horizontal) {
+        for (PSMTabGroupHeaderCell *headerCell in [bar groupHeaderCells]) {
+            NSRect headerFrame = [headerCell frame];
+            if (NSIntersectsRect(headerFrame, clipRect)) {
+                [self drawGroupHeaderCell:headerCell inRect:headerFrame];
+            }
+        }
+
+        // Draw selection highlight for tabs selected for grouping
+        for (PSMTabBarCell *cell in [bar cells]) {
+            if (cell.selectedForGrouping && ![cell isInOverflowMenu] && NSIntersectsRect([cell frame], clipRect)) {
+                [self drawGroupSelectionHighlightForCell:cell inRect:[cell frame]];
+            }
+        }
+    }
 }
 
 - (void)drawDividerBetweenTabBarAndContent:(NSRect)rect bar:(PSMTabBarControl *)bar {
@@ -1291,6 +1309,24 @@ const void *PSMTabStyleDarkColorKey = "dark";
                 break;
         }
     }
+}
+
+#pragma mark - Tab Group Drawing
+
+- (void)drawGroupHeaderCell:(PSMTabGroupHeaderCell *)cell inRect:(NSRect)rect {
+    [cell drawWithFrame:rect inView:_tabBar];
+}
+
+- (void)drawGroupSelectionHighlightForCell:(PSMTabBarCell *)cell inRect:(NSRect)rect {
+    NSColor *highlightColor;
+    if (@available(macOS 10.14, *)) {
+        highlightColor = [[NSColor controlAccentColor] colorWithAlphaComponent:0.15];
+    } else {
+        highlightColor = [[NSColor selectedControlColor] colorWithAlphaComponent:0.3];
+    }
+    [highlightColor set];
+    NSBezierPath *path = [NSBezierPath bezierPathWithRoundedRect:NSInsetRect(rect, 1, 1) xRadius:3 yRadius:3];
+    [path fill];
 }
 
 - (BOOL)shouldDrawTopLineSelected:(BOOL)selected

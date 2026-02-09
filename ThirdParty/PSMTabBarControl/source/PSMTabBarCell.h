@@ -58,6 +58,9 @@
 @property(nonatomic) PSMProgress progress;
 @property(nonatomic) BOOL isProcessing;
 
+// Tab group multi-selection (independent of active tab state)
+@property(nonatomic, assign) BOOL selectedForGrouping;
+
 // creation/destruction
 - (id)initWithControlView:(PSMTabBarControl *)controlView;
 - (id)initPlaceholderWithFrame:(NSRect)frame expanded:(BOOL)value inControlView:(PSMTabBarControl *)controlView;

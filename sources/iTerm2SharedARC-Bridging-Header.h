@@ -180,6 +180,8 @@
 #import "PSMCachedTitle.h"
 #import "PSMRolloverButton.h"
 #import "PSMTabBarControl.h"
+#import "PSMTabGroup.h"
+#import "PSMTabGroupHeaderCell.h"
 #import "PSMTabStyle.h"
 #import "PSMYosemiteTabStyle.h"
 #import "PTYScrollView.h"

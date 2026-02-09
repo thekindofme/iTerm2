@@ -16,6 +16,8 @@
 #import "PSMTabStyle.h"
 #import "PSMYosemiteTabStyle.h"
 #import "PSMTabDragAssistant.h"
+#import "PSMTabGroup.h"
+#import "PSMTabGroupHeaderCell.h"
 #import "PTYTask.h"
 #import "NSColor+PSM.h"
 #import "NSWindow+PSM.h"
@@ -177,6 +179,12 @@ PSMTabBarControlOptionKey PSMTabBarControlOptionDarkModeInactiveTabDarkness = @"
     BOOL _needsUpdate;
     NSInteger _preDragSelectedTabIndex;  // or NSNotFound
     NSMutableArray<PSMToolTip *> *_tooltips;
+
+    // Tab groups (vertical tab bar only)
+    NSMutableArray<PSMTabGroup *> *_tabGroups;
+    NSMutableArray<PSMTabGroupHeaderCell *> *_groupHeaderCells;
+    NSMutableDictionary<NSString *, PSMTabGroup *> *_tabGUIDToGroup;
+    CGFloat _currentGroupIndent;
     NSInteger _toolTipCoalescing;
 }
 
@@ -270,6 +278,9 @@ PSMTabBarControlOptionKey PSMTabBarControlOptionDarkModeInactiveTabDarkness = @"
                                                      name:kPSMModifierChangedNotification
                                                    object:nil];
         _tooltips = [[NSMutableArray alloc] init];
+        _tabGroups = [[NSMutableArray alloc] init];
+        _groupHeaderCells = [[NSMutableArray alloc] init];
+        _tabGUIDToGroup = [[NSMutableDictionary alloc] init];
     }
     [self setTarget:self];
     return self;
@@ -383,6 +394,9 @@ PSMTabBarControlOptionKey PSMTabBarControlOptionDarkModeInactiveTabDarkness = @"
     [_lastMiddleMouseDownEvent release];
     [_style release];
     [_tooltips release];
+    [_tabGroups release];
+    [_groupHeaderCells release];
+    [_tabGUIDToGroup release];
     _tooltips = nil;
 
     [self unregisterDraggedTypes];
@@ -620,6 +634,10 @@ PSMTabBarControlOptionKey PSMTabBarControlOptionDarkModeInactiveTabDarkness = @"
     } else {
         if (point.y < self.insets.top) {
             return NO;
+        }
+        // Check group headers too
+        if ([self groupHeaderCellForPoint:point]) {
+            return YES;
         }
         PSMTabBarCell *lastCell = _cells.lastObject;
         if (!lastCell) {
@@ -1181,8 +1199,40 @@ PSMTabBarControlOptionKey PSMTabBarControlOptionDarkModeInactiveTabDarkness = @"
         NSRect cellRect = [self genericCellRectWithOverflow:(NO || _showAddTabButton)];
         NSMutableArray *newOrigins = [NSMutableArray arrayWithCapacity:cellCount];
 
+        static const CGFloat kGroupIndent = 10.0;
+
+        // Rebuild group header cells to match current groups
+        [_groupHeaderCells removeAllObjects];
+        NSMutableSet<NSString *> *groupsEmitted = [NSMutableSet set];
+
         for (int i = 0; i < cellCount; ++i) {
-            // Lay out vertical tabs.
+            PSMTabBarCell *cell = [_cells objectAtIndex:i];
+            NSString *guid = [self guidForCell:cell];
+            PSMTabGroup *group = guid ? [self groupForTabGUID:guid] : nil;
+
+            if (group && ![groupsEmitted containsObject:group.identifier]) {
+                // This is the first cell of a group. Emit header.
+                [groupsEmitted addObject:group.identifier];
+
+                if (currentOrigin + cellRect.size.height <= [self frame].size.height) {
+                    PSMTabGroupHeaderCell *headerCell = [[[PSMTabGroupHeaderCell alloc] initWithGroup:group] autorelease];
+                    NSRect headerFrame = cellRect;
+                    headerFrame.origin.y = currentOrigin;
+                    headerFrame.size.width = [self frame].size.width;
+                    [headerCell setFrame:headerFrame];
+                    [_groupHeaderCells addObject:headerCell];
+                    currentOrigin += cellRect.size.height;
+                } else {
+                    break;
+                }
+            }
+
+            if (group && group.collapsed) {
+                // Collapsed: hide member tabs by giving them a zero-height origin off-screen
+                [newOrigins addObject:[NSNumber numberWithFloat:-cellRect.size.height]];
+                continue;
+            }
+
             if (currentOrigin + cellRect.size.height <= [self frame].size.height) {
                 [newOrigins addObject:[NSNumber numberWithFloat:currentOrigin]];
                 currentOrigin += cellRect.size.height;
@@ -1194,7 +1244,7 @@ PSMTabBarControlOptionKey PSMTabBarControlOptionDarkModeInactiveTabDarkness = @"
                 break;
             }
         }
-        [self finishUpdateWithRegularWidths:newOrigins widthsWithOverflow:newOrigins];
+        [self finishUpdateWithRegularWidths:newOrigins widthsWithOverflow:newOrigins groupIndent:kGroupIndent];
     }
 
     [self setNeedsDisplay:YES];
@@ -1372,6 +1422,13 @@ PSMTabBarControlOptionKey PSMTabBarControlOptionDarkModeInactiveTabDarkness = @"
 }
 
 - (void)finishUpdateWithRegularWidths:(NSArray *)regularWidths
+                   widthsWithOverflow:(NSArray *)widthsWithOverflow
+                          groupIndent:(CGFloat)groupIndent {
+    _currentGroupIndent = groupIndent;
+    [self finishUpdateWithRegularWidths:regularWidths widthsWithOverflow:widthsWithOverflow];
+}
+
+- (void)finishUpdateWithRegularWidths:(NSArray *)regularWidths
                    widthsWithOverflow:(NSArray *)widthsWithOverflow {
     // Set up overflow menu.
     NSArray *newValues;
@@ -1424,9 +1481,27 @@ PSMTabBarControlOptionKey PSMTabBarControlOptionDarkModeInactiveTabDarkness = @"
             if ([self orientation] == PSMTabBarHorizontalOrientation) {
                 cellRect.size.width = [[newValues objectAtIndex:i] floatValue];
             } else {
-                cellRect.size.width = [self frame].size.width;
                 cellRect.origin.y = [[newValues objectAtIndex:i] floatValue];
                 cellRect.origin.x = 0;
+                cellRect.size.width = [self frame].size.width;
+
+                // Apply group indent for grouped tabs in vertical mode
+                if (_currentGroupIndent > 0) {
+                    NSString *guid = [self guidForCell:cell];
+                    PSMTabGroup *group = guid ? [self groupForTabGUID:guid] : nil;
+                    if (group) {
+                        if (group.collapsed) {
+                            // Collapsed group member: hide completely
+                            cellRect = NSZeroRect;
+                            [cell setFrame:cellRect];
+                            [cell setIsInOverflowMenu:YES];
+                            [[cell indicator] removeFromSuperview];
+                            continue;
+                        }
+                        cellRect.origin.x += _currentGroupIndent;
+                        cellRect.size.width -= _currentGroupIndent;
+                    }
+                }
             }
             cellRect = [_style adjustedCellRect:cellRect generic:generic];
             [cell setFrame:cellRect];
@@ -1620,6 +1695,30 @@ PSMTabBarControlOptionKey PSMTabBarControlOptionDarkModeInactiveTabDarkness = @"
 
     if ([self orientation] == PSMTabBarVerticalOrientation && [self allowsResizing] && partnerView && (mousePt.x > frame.size.width - 3)) {
         _resizing = YES;
+    }
+
+    // Check for click on a group header (vertical orientation only)
+    if ([self orientation] == PSMTabBarVerticalOrientation) {
+        PSMTabGroupHeaderCell *headerCell = [self groupHeaderCellForPoint:mousePt];
+        if (headerCell) {
+            NSRect disclosureRect = [headerCell disclosureRectForFrame:[headerCell frame]];
+            if (NSMouseInRect(mousePt, disclosureRect, [self isFlipped]) ||
+                NSMouseInRect(mousePt, [headerCell frame], [self isFlipped])) {
+                [self toggleGroupCollapsed:headerCell.group];
+            }
+            return;
+        }
+
+        // Cmd-click toggles selection for grouping
+        if ((theEvent.modifierFlags & NSEventModifierFlagCommand) != 0) {
+            NSRect cellFrame;
+            PSMTabBarCell *cell = [self cellForPoint:mousePt cellFrame:&cellFrame];
+            if (cell) {
+                cell.selectedForGrouping = !cell.selectedForGrouping;
+                [self setNeedsDisplay:YES];
+                return;
+            }
+        }
     }
 
     NSRect cellFrame;
@@ -2648,6 +2747,112 @@ static CFAbsoluteTime gDragMoveFirstTime = 0;
 
 - (void)progressIndicatorNeedsUpdate {
     [self setNeedsUpdate:YES];
+}
+
+#pragma mark - Tab Groups
+
+- (NSArray<PSMTabGroup *> *)tabGroups {
+    return [[_tabGroups copy] autorelease];
+}
+
+- (NSArray<PSMTabGroupHeaderCell *> *)groupHeaderCells {
+    return [[_groupHeaderCells copy] autorelease];
+}
+
+- (void)rebuildGUIDToGroupCache {
+    [_tabGUIDToGroup removeAllObjects];
+    for (PSMTabGroup *group in _tabGroups) {
+        for (NSString *guid in group.tabGUIDs) {
+            _tabGUIDToGroup[guid] = group;
+        }
+    }
+}
+
+- (void)addTabGroup:(PSMTabGroup *)group {
+    if (!group) {
+        return;
+    }
+    [_tabGroups addObject:group];
+    for (NSString *guid in group.tabGUIDs) {
+        _tabGUIDToGroup[guid] = group;
+    }
+    [self update:YES];
+}
+
+- (void)removeTabGroup:(PSMTabGroup *)group {
+    if (!group) {
+        return;
+    }
+    for (NSString *guid in group.tabGUIDs) {
+        [_tabGUIDToGroup removeObjectForKey:guid];
+    }
+    [_tabGroups removeObject:group];
+    [self update:YES];
+}
+
+- (void)toggleGroupCollapsed:(PSMTabGroup *)group {
+    if (!group) {
+        return;
+    }
+    group.collapsed = !group.collapsed;
+    [self update:YES];
+}
+
+- (PSMTabGroup *)groupForTabGUID:(NSString *)guid {
+    if (!guid) {
+        return nil;
+    }
+    return _tabGUIDToGroup[guid];
+}
+
+- (NSString *)guidForCell:(PSMTabBarCell *)cell {
+    NSTabViewItem *item = [cell representedObject];
+    if (!item) {
+        return nil;
+    }
+    id identifier = [item identifier];
+    if ([identifier respondsToSelector:@selector(stringUniqueIdentifier)]) {
+        return [identifier stringUniqueIdentifier];
+    }
+    return nil;
+}
+
+- (NSArray<PSMTabBarCell *> *)cellsSelectedForGrouping {
+    NSMutableArray *selected = [NSMutableArray array];
+    for (PSMTabBarCell *cell in _cells) {
+        if (cell.selectedForGrouping) {
+            [selected addObject:cell];
+        }
+    }
+    return selected;
+}
+
+- (void)clearGroupingSelection {
+    for (PSMTabBarCell *cell in _cells) {
+        cell.selectedForGrouping = NO;
+    }
+    [self setNeedsDisplay:YES];
+}
+
+- (PSMTabGroupHeaderCell *)groupHeaderCellForPoint:(NSPoint)point {
+    for (PSMTabGroupHeaderCell *headerCell in _groupHeaderCells) {
+        if (NSPointInRect(point, [headerCell frame])) {
+            return headerCell;
+        }
+    }
+    return nil;
+}
+
+- (void)pruneEmptyGroups {
+    NSMutableArray *toRemove = [NSMutableArray array];
+    for (PSMTabGroup *group in _tabGroups) {
+        if (group.tabGUIDs.count < 2) {
+            [toRemove addObject:group];
+        }
+    }
+    for (PSMTabGroup *group in toRemove) {
+        [self removeTabGroup:group];
+    }
 }
 
 @end
