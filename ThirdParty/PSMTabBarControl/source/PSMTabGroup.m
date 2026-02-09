@@ -9,6 +9,7 @@ static NSString *const kPSMTabGroupIdentifier = @"identifier";
 static NSString *const kPSMTabGroupTitle = @"title";
 static NSString *const kPSMTabGroupCollapsed = @"collapsed";
 static NSString *const kPSMTabGroupTabGUIDs = @"tabGUIDs";
+static NSString *const kPSMTabGroupColor = @"color";
 
 @implementation PSMTabGroup {
     NSMutableArray<NSString *> *_tabGUIDs;
@@ -32,6 +33,7 @@ static NSString *const kPSMTabGroupTabGUIDs = @"tabGUIDs";
 - (id)copyWithZone:(NSZone *)zone {
     PSMTabGroup *copy = [[PSMTabGroup alloc] initWithTitle:_title tabGUIDs:_tabGUIDs];
     copy->_collapsed = _collapsed;
+    copy->_color = [_color copy];
     // Copy gets its own new identifier by default from initWithTitle:tabGUIDs:.
     // For a true copy, override it.
     copy->_identifier = [_identifier copy];
@@ -67,12 +69,19 @@ static NSString *const kPSMTabGroupTabGUIDs = @"tabGUIDs";
 #pragma mark - Arrangement
 
 - (NSDictionary *)arrangementRepresentation {
-    return @{
+    NSMutableDictionary *dict = [NSMutableDictionary dictionaryWithDictionary:@{
         kPSMTabGroupIdentifier: _identifier ?: @"",
         kPSMTabGroupTitle: _title ?: @"",
         kPSMTabGroupCollapsed: @(_collapsed),
         kPSMTabGroupTabGUIDs: [_tabGUIDs copy] ?: @[]
-    };
+    }];
+    if (_color) {
+        NSColor *rgb = [_color colorUsingColorSpace:[NSColorSpace sRGBColorSpace]];
+        CGFloat r, g, b, a;
+        [rgb getRed:&r green:&g blue:&b alpha:&a];
+        dict[kPSMTabGroupColor] = @{@"red": @(r), @"green": @(g), @"blue": @(b), @"alpha": @(a)};
+    }
+    return dict;
 }
 
 + (instancetype)groupFromArrangement:(NSDictionary *)arrangement {
@@ -98,6 +107,14 @@ static NSString *const kPSMTabGroupTabGUIDs = @"tabGUIDs";
     NSNumber *collapsed = arrangement[kPSMTabGroupCollapsed];
     if ([collapsed isKindOfClass:[NSNumber class]]) {
         group->_collapsed = [collapsed boolValue];
+    }
+
+    NSDictionary *colorDict = arrangement[kPSMTabGroupColor];
+    if ([colorDict isKindOfClass:[NSDictionary class]]) {
+        group->_color = [[NSColor colorWithSRGBRed:[colorDict[@"red"] doubleValue]
+                                             green:[colorDict[@"green"] doubleValue]
+                                              blue:[colorDict[@"blue"] doubleValue]
+                                             alpha:[colorDict[@"alpha"] doubleValue]] copy];
     }
 
     return group;

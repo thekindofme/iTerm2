@@ -110,6 +110,7 @@ extern PSMTabBarControlOptionKey PSMTabBarControlOptionDarkModeInactiveTabDarkne
 
 //Contextual menu method
 - (NSMenu *)tabView:(NSTabView *)aTabView menuForTabViewItem:(NSTabViewItem *)tabViewItem;
+- (NSMenu *)tabView:(NSTabView *)aTabView menuForTabGroup:(PSMTabGroup *)group;
 
 //Drag and drop methods
 - (BOOL)tabView:(NSTabView *)aTabView shouldDragTabViewItem:(NSTabViewItem *)tabViewItem fromTabBar:(PSMTabBarControl *)tabBarControl;

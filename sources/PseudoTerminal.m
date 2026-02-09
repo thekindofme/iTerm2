@@ -12024,6 +12024,80 @@ typedef NS_ENUM(NSUInteger, iTermBroadcastCommand) {
     }
 }
 
+#pragma mark - Tab Group Header Context Menu
+
+- (NSMenu *)tabView:(NSTabView *)tabView menuForTabGroup:(PSMTabGroup *)group {
+    NSMenu *menu = [[[NSMenu alloc] init] autorelease];
+    NSMenuItem *item;
+
+    // Rename Group
+    item = [[[NSMenuItem alloc] initWithTitle:[NSString stringWithFormat:@"Rename Group \u201C%@\u201D\u2026", group.title]
+                                       action:@selector(renameTabGroupFromHeader:)
+                                keyEquivalent:@""] autorelease];
+    [item setRepresentedObject:group];
+    [menu addItem:item];
+
+    // Ungroup
+    item = [[[NSMenuItem alloc] initWithTitle:@"Ungroup"
+                                       action:@selector(ungroupAllInGroupFromHeader:)
+                                keyEquivalent:@""] autorelease];
+    [item setRepresentedObject:group];
+    [menu addItem:item];
+
+    [menu addItem:[NSMenuItem separatorItem]];
+
+    // Group Color
+    NSSize colorViewSize = [ColorsMenuItemView preferredSize];
+    ColorsMenuItemView *colorView = [[[ColorsMenuItemView alloc]
+                                      initWithFrame:NSMakeRect(0, 0, colorViewSize.width, colorViewSize.height)] autorelease];
+    colorView.currentColor = group.color;
+    item = [[[NSMenuItem alloc] initWithTitle:@"Group Color"
+                                       action:@selector(changeGroupColorToMenuAction:)
+                                keyEquivalent:@""] autorelease];
+    [item setView:colorView];
+    [item setRepresentedObject:group];
+    [menu addItem:item];
+
+    return menu;
+}
+
+- (void)changeGroupColorToMenuAction:(id)sender {
+    PSMTabGroup *group = [sender representedObject];
+    ColorsMenuItemView *colorView = (ColorsMenuItemView *)[sender view];
+    group.color = colorView.color;
+    [_contentView.tabBarControl setNeedsDisplay:YES];
+}
+
+- (void)renameTabGroupFromHeader:(id)sender {
+    PSMTabGroup *group = [sender representedObject];
+    if (!group) {
+        return;
+    }
+
+    NSAlert *alert = [[[NSAlert alloc] init] autorelease];
+    alert.messageText = @"Rename Group";
+    alert.informativeText = @"Enter a new name for the tab group:";
+    [alert addButtonWithTitle:@"OK"];
+    [alert addButtonWithTitle:@"Cancel"];
+
+    NSTextField *input = [[[NSTextField alloc] initWithFrame:NSMakeRect(0, 0, 200, 24)] autorelease];
+    input.stringValue = group.title ?: @"";
+    alert.accessoryView = input;
+
+    NSModalResponse response = [alert runModal];
+    if (response == NSAlertFirstButtonReturn && input.stringValue.length > 0) {
+        group.title = input.stringValue;
+        [_contentView.tabBarControl update:YES];
+    }
+}
+
+- (void)ungroupAllInGroupFromHeader:(id)sender {
+    PSMTabGroup *group = [sender representedObject];
+    if (group) {
+        [_contentView.tabBarControl removeTabGroup:group];
+    }
+}
+
 // Move a tab to a new window due to a context menu selection.
 - (void)moveTabToNewWindowContextualMenuAction:(id)sender {
     NSTabViewItem *aTabViewItem = [sender representedObject];

@@ -30,13 +30,40 @@ static const CGFloat kBadgeRightMargin = 8.0;
 - (void)drawWithFrame:(NSRect)cellFrame inView:(NSView *)controlView {
     // Draw background
     NSColor *bgColor;
-    if (@available(macOS 10.14, *)) {
+    BOOL hasCustomColor = (_group.color != nil);
+    if (hasCustomColor) {
+        bgColor = _group.color;
+    } else if (@available(macOS 10.14, *)) {
         bgColor = [NSColor controlBackgroundColor];
     } else {
         bgColor = [NSColor colorWithCalibratedWhite:0.92 alpha:1.0];
     }
     [bgColor set];
     NSRectFill(cellFrame);
+
+    // Compute contrasting text color based on perceived brightness of background
+    NSColor *textColor;
+    NSColor *secondaryTextColor;
+    CGFloat disclosureFraction;
+    if (hasCustomColor) {
+        NSColor *rgb = [bgColor colorUsingColorSpace:[NSColorSpace sRGBColorSpace]];
+        CGFloat r, g, b, a;
+        [rgb getRed:&r green:&g blue:&b alpha:&a];
+        CGFloat luminance = 0.299 * r + 0.587 * g + 0.114 * b;
+        if (luminance > 0.5) {
+            textColor = [NSColor blackColor];
+            secondaryTextColor = [NSColor colorWithCalibratedWhite:0.0 alpha:0.6];
+            disclosureFraction = 0.7;
+        } else {
+            textColor = [NSColor whiteColor];
+            secondaryTextColor = [NSColor colorWithCalibratedWhite:1.0 alpha:0.7];
+            disclosureFraction = 0.9;
+        }
+    } else {
+        textColor = [NSColor labelColor];
+        secondaryTextColor = [NSColor secondaryLabelColor];
+        disclosureFraction = 0.6;
+    }
 
     // Draw a subtle separator line at bottom
     NSColor *separatorColor;
@@ -64,7 +91,7 @@ static const CGFloat kBadgeRightMargin = 8.0;
         [disclosureImage drawInRect:disclosureRect
                            fromRect:NSZeroRect
                           operation:NSCompositingOperationSourceOver
-                           fraction:0.6
+                           fraction:disclosureFraction
                      respectFlipped:YES
                               hints:nil];
     }
@@ -79,7 +106,7 @@ static const CGFloat kBadgeRightMargin = 8.0;
         NSString *countStr = [NSString stringWithFormat:@"(%lu)", (unsigned long)_group.tabGUIDs.count];
         NSDictionary *countAttrs = @{
             NSFontAttributeName: [NSFont systemFontOfSize:11],
-            NSForegroundColorAttributeName: [NSColor secondaryLabelColor]
+            NSForegroundColorAttributeName: secondaryTextColor
         };
         NSSize countSize = [countStr sizeWithAttributes:countAttrs];
         maxTitleWidth -= countSize.width + 4;
@@ -92,7 +119,7 @@ static const CGFloat kBadgeRightMargin = 8.0;
 
     NSDictionary *titleAttrs = @{
         NSFontAttributeName: [NSFont boldSystemFontOfSize:11],
-        NSForegroundColorAttributeName: [NSColor labelColor]
+        NSForegroundColorAttributeName: textColor
     };
     NSSize titleSize = [title sizeWithAttributes:titleAttrs];
     CGFloat titleY = NSMidY(cellFrame) - titleSize.height / 2.0;

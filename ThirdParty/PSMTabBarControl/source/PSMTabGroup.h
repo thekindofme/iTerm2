@@ -6,13 +6,14 @@
 //  References tabs by GUID (NSString) to avoid retaining tab objects.
 //
 
-#import <Foundation/Foundation.h>
+#import <Cocoa/Cocoa.h>
 
 @interface PSMTabGroup : NSObject <NSCopying>
 
 @property (nonatomic, copy, readonly) NSString *identifier;
 @property (nonatomic, copy) NSString *title;
 @property (nonatomic, assign) BOOL collapsed;
+@property (nonatomic, copy) NSColor *color;
 @property (nonatomic, readonly) NSArray<NSString *> *tabGUIDs;
 
 - (instancetype)initWithTitle:(NSString *)title;

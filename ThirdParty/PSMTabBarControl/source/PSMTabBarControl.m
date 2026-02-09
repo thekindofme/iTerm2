@@ -1908,7 +1908,18 @@ PSMTabBarControlOptionKey PSMTabBarControlOptionDarkModeInactiveTabDarkness = @"
 - (NSMenu *)menuForEvent:(NSEvent *)event
 {
     NSMenu *menu = nil;
-    NSTabViewItem *item = [[self cellForPoint:[self convertPoint:[event locationInWindow] fromView:nil] cellFrame:nil] representedObject];
+    NSPoint point = [self convertPoint:[event locationInWindow] fromView:nil];
+
+    // Check for right-click on a group header (vertical only)
+    if ([self orientation] == PSMTabBarVerticalOrientation) {
+        PSMTabGroupHeaderCell *headerCell = [self groupHeaderCellForPoint:point];
+        if (headerCell &&
+            [[self delegate] respondsToSelector:@selector(tabView:menuForTabGroup:)]) {
+            return [[self delegate] tabView:_tabView menuForTabGroup:headerCell.group];
+        }
+    }
+
+    NSTabViewItem *item = [[self cellForPoint:point cellFrame:nil] representedObject];
 
     if (item && [[self delegate] respondsToSelector:@selector(tabView:menuForTabViewItem:)]) {
         menu = [[self delegate] tabView:_tabView menuForTabViewItem:item];
