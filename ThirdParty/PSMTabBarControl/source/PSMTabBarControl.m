@@ -1492,8 +1492,7 @@ PSMTabBarControlOptionKey PSMTabBarControlOptionDarkModeInactiveTabDarkness = @"
                     if (group) {
                         if (group.collapsed) {
                             // Collapsed group member: hide completely
-                            cellRect = NSZeroRect;
-                            [cell setFrame:cellRect];
+                            [cell setFrame:NSZeroRect];
                             [cell setIsInOverflowMenu:YES];
                             [[cell indicator] removeFromSuperview];
                             continue;
