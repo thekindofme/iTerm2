@@ -2,6 +2,14 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Fork Context
+
+This is a fork (`thekindofme/iTerm2`) of the upstream iTerm2 (`gnachman/iTerm2`). The fork adds custom features — primarily tab grouping for the vertical tab bar — on top of upstream.
+
+- **Remotes**: `origin` = `thekindofme/iTerm2`, `upstream` = `gnachman/iTerm2`
+- **Workflow**: periodically merge upstream/master, develop features on `master` branch
+- **Syncing**: `git fetch upstream && git merge upstream/master`
+
 ## Build & Run
 
 ```bash
@@ -115,3 +123,37 @@ Internal UI frameworks: `BetterFontPicker/`, `ColorPicker/`, `SearchableComboLis
 ### Xcode Version Gating
 
 `last-xcode-version` tracks the Xcode used to build ThirdParty deps. On mismatch, the build script phase "Build binary dependencies if xcode version changed" fails. For minor version bumps, update the file: `xcodebuild -version > last-xcode-version`. For major jumps, run `make paranoiddeps`.
+
+## Active Development Areas (Fork)
+
+### 1. Tab Grouping (Vertical Tab Bar) — Primary Feature
+
+Adds the ability to group tabs in the vertical (left) tab bar with collapsible group headers.
+
+**Key new files:**
+- `ThirdParty/PSMTabBarControl/source/PSMTabGroup.h/.m` — group model
+- `ThirdParty/PSMTabBarControl/source/PSMTabGroupHeaderCell.h/.m` — header rendering
+
+**Key modified files:**
+- `ThirdParty/PSMTabBarControl/source/PSMTabBarControl.h/.m` — layout + group management
+- `ThirdParty/PSMTabBarControl/source/PSMTabBarCell.h` — `selectedForGrouping` property
+- `ThirdParty/PSMTabBarControl/source/PSMTabDragAssistant.h/.m` — group-aware dragging
+- `sources/PseudoTerminal.m` — context menus, persistence, group operations
+
+**Scope:** only applies to vertical (left) tab bar (`PSMTab_LeftTab`).
+
+**Persistence:** groups serialized under `TERMINAL_ARRANGEMENT_TAB_GROUPS` key.
+
+**Tests:** `iTerm2XCTests/PSMTabGroupTest.m`, `PSMTabBarControlGroupTest.m`, `PSMTabGroupArrangementTest.m`
+
+### 2. Active Pane Border — Upstream Feature Extended in Fork
+
+### 3. Window Radius Improvements — Fork Enhancement
+
+## Fork-Specific Guidelines
+
+- When adding new tab grouping functionality, follow the pattern in `PSMTabBarControl.m` vertical layout.
+- Group header rendering follows `PSMTabGroupHeaderCell.m` patterns (SF Symbols, luminance-based text contrast).
+- Tab grouping context menus are gated on vertical tab position — check `tabBarIsVertical` before adding group menu items.
+- New group features need serialization support via `arrangementRepresentation` in `PSMTabGroup`.
+- Keep tab grouping tests in dedicated test files (`PSMTabGroupTest.m`, `PSMTabBarControlGroupTest.m`, `PSMTabGroupArrangementTest.m`).
