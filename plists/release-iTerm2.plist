@@ -228,7 +228,7 @@
                 </dict>
         </array>
         <key>CFBundleExecutable</key>
-        <string>iTerm2</string>
+        <string>yiTerm2</string>
         <key>CFBundleGetInfoString</key>
         <string>unknown</string>
         <key>CFBundleHelpBookFolder</key>
@@ -238,11 +238,11 @@
         <key>CFBundleIconFile</key>
         <string>iTerm2.icns</string>
         <key>CFBundleIdentifier</key>
-        <string>com.googlecode.iterm2</string>
+        <string>com.thekindofme.yiterm2</string>
         <key>CFBundleInfoDictionaryVersion</key>
         <string>6.0</string>
         <key>CFBundleName</key>
-        <string>iTerm2</string>
+        <string>yiTerm2</string>
         <key>CFBundlePackageType</key>
         <string>APPL</string>
         <key>CFBundleShortVersionString</key>

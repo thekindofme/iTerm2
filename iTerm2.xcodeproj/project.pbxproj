@@ -18488,13 +18488,13 @@
 			inputFileListPaths = (
 			);
 			inputPaths = (
-				"$(DERIVED_SOURCES_DIR)/iTerm2-Swift.h",
+				"$(DERIVED_SOURCES_DIR)/yiTerm2-Swift.h",
 			);
 			name = "Make symlink to iTerm";
 			outputFileListPaths = (
 			);
 			outputPaths = (
-				"$(PROJECT_DERIVED_FILE_DIR)/iTerm2-Swift.h",
+				"$(PROJECT_DERIVED_FILE_DIR)/yiTerm2-Swift.h",
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
@@ -20471,8 +20471,8 @@
 					"-ObjC",
 					"-lc++",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = com.googlecode.iterm2;
-				PRODUCT_NAME = iTerm2;
+				PRODUCT_BUNDLE_IDENTIFIER = com.thekindofme.yiterm2;
+				PRODUCT_NAME = yiTerm2;
 				SDKROOT = macosx;
 				SWIFT_OBJC_BRIDGING_HEADER = "";
 				SWIFT_VERSION = 5.0;
@@ -21744,8 +21744,8 @@
 					"-ObjC",
 					"-lc++",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = com.googlecode.iterm2;
-				PRODUCT_NAME = iTerm2;
+				PRODUCT_BUNDLE_IDENTIFIER = com.thekindofme.yiterm2;
+				PRODUCT_NAME = yiTerm2;
 				SDKROOT = macosx;
 				SWIFT_OBJC_BRIDGING_HEADER = "";
 				SWIFT_VERSION = 5.0;
@@ -24444,8 +24444,8 @@
 					"-ObjC",
 					"-lc++",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = com.googlecode.iterm2;
-				PRODUCT_NAME = iTerm2;
+				PRODUCT_BUNDLE_IDENTIFIER = com.thekindofme.yiterm2;
+				PRODUCT_NAME = yiTerm2;
 				SDKROOT = macosx;
 				SECTORDER_FLAGS = "";
 				SWIFT_OBJC_BRIDGING_HEADER = "";
@@ -24535,8 +24535,8 @@
 					"-ObjC",
 					"-lc++",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = com.googlecode.iterm2;
-				PRODUCT_NAME = iTerm2;
+				PRODUCT_BUNDLE_IDENTIFIER = com.thekindofme.yiterm2;
+				PRODUCT_NAME = yiTerm2;
 				SDKROOT = macosx;
 				SWIFT_OBJC_BRIDGING_HEADER = "";
 				SWIFT_VERSION = 5.0;

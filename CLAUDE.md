@@ -6,6 +6,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 This is a fork (`thekindofme/iTerm2`) of the upstream iTerm2 (`gnachman/iTerm2`). The fork adds custom features — primarily tab grouping for the vertical tab bar — on top of upstream.
 
+- **App name**: "yiTerm2" (bundle ID: `com.thekindofme.yiterm2`)
+- **Auto-updates**: Disabled — the fork has no update feed
 - **Remotes**: `origin` = `thekindofme/iTerm2`, `upstream` = `gnachman/iTerm2`
 - **Workflow**: periodically merge upstream/master, develop features on `master` branch
 - **Syncing**: `git fetch upstream && git merge upstream/master`

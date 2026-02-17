@@ -478,7 +478,7 @@ static NSString *sPreviousVersion;
                   kPreferenceKeySavePasteAndCommandHistory: @NO,
                   kPreferenceKeyAddBonjourHostsToProfiles: @NO,
                   kPreferenceKeyNotifyOnlyForCriticalShellIntegrationUpdates: @YES,
-                  kPreferenceKeyCheckForUpdatesAutomatically: @YES,
+                  kPreferenceKeyCheckForUpdatesAutomatically: @NO,
                   kPreferenceKeyCheckForTestReleases: @NO,
                   kPreferenceKeyLoadPrefsFromCustomFolder: @NO,
                   kPreferenceKeyUseCustomScriptsFolder: @NO,
